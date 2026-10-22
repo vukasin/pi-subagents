@@ -2,7 +2,7 @@
 name: researcher
 description: Web researcher — searches the web and synthesizes findings
 tools: web_search, web_fetch
-model: anthropic/claude-sonnet-4-6
+model: strata/qwen3.8-flash-next-coder-iq1_m
 thinking: medium
 ---
 

@@ -4,15 +4,54 @@ A [pi](https://github.com/earendil-works/pi) extension that registers a single `
 
 | Agent | Tools | Model | Purpose |
 |-------|-------|-------|---------|
-| **scout** | read, grep, find, ls | claude-haiku-4-5 | Fast codebase recon |
-| **researcher** | web_search, web_fetch | claude-sonnet-4-6 | Web research |
-| **worker** | read, write, edit, safe_bash, web_search, web_fetch, subagent | claude-sonnet-4-6 | Code changes (can dispatch scout/researcher to protect its own context) |
+| **scout** | read, grep, find, ls | strata/qwen3.8-flash-next-coder-iq1_m | Fast codebase recon |
+| **researcher** | web_search, web_fetch | strata/qwen3.8-flash-next-coder-iq1_m | Web research |
+| **worker** | read, write, edit, safe_bash, web_search, web_fetch, subagent | strata/qwen3.8-flash-next-coder-iq1_m | Code changes (can dispatch scout/researcher to protect its own context) |
 
 `worker` is allowlisted to spawn only `scout` and `researcher` (via `subagent_agents` in its frontmatter), so the chain stops at depth 2 — a worker cannot recurse into another worker.
 
 ## Dependencies
 
-`safe_bash` ships in this repo (`tools/safe-bash.ts`). `web_search` and `web_fetch` do not — `researcher` and `worker` depend on them. Grab those two extensions from [amosblomqvist/pi-config](https://github.com/amosblomqvist/pi-config) (`extensions/web-search/`, `extensions/web-fetch/`) and drop them into `~/.pi/agent/extensions/`. Without them the affected agents will launch with an empty tool allowlist and silently do nothing useful.
+`safe_bash` ships in this repo (`tools/safe-bash.ts`). `web_search` and `web_fetch` do not — `researcher` and `worker` depend on them. Upstream expects them at `~/.pi/agent/extensions/web-search/index.ts` and `~/.pi/agent/extensions/web-fetch/index.ts`; on this fork they are supplied through `config.json` instead (see [Local adaptations](#local-adaptations)), so no extra `extensions/` drop-in is needed.
+
+## Local adaptations (vukasin fork)
+
+Machine-specific settings live in `config.json` next to `index.ts`, so `index.ts` keeps upstream's defaults and stays mergeable when you pull from `amosblomqvist/pi-subagents`.
+
+**1. Web tools come from the `@ollama/pi-web-search` package** (one file registers both tools):
+
+```json
+{
+  "maxConcurrency": 4,
+  "toolExtensions": {
+    "web_search": "~/.pi/agent/npm/node_modules/@ollama/pi-web-search/index.ts",
+    "web_fetch": "~/.pi/agent/npm/node_modules/@ollama/pi-web-search/index.ts"
+  }
+}
+```
+
+`toolExtensions` values accept absolute paths, `~/`-prefixed paths, and paths relative to this extension directory. Any tool without an override keeps its upstream default (`safe_bash`, `video_extract`, `youtube_search`, `google_image_search`). `subagent` is deliberately not overridable — a child must load this same `index.ts`.
+
+**2. Agents are pinned to the model this machine actually serves** — no `anthropic` provider is configured, so upstream's `anthropic/claude-*` ids silently fall back to the default model. `agents/*.md` frontmatter now reads:
+
+```yaml
+model: strata/qwen3.8-flash-next-coder-iq1_m
+```
+
+**3. Install from this fork instead of upstream:**
+
+```bash
+pi install git:github.com/vukasin/pi-subagents
+pi remove git:github.com/amosblomqvist/pi-subagents   # if the upstream entry is still installed
+```
+
+**4. Pull upstream changes** — the clone keeps an `upstream` remote; with the pi git package, `pi update --extensions` re-syncs the checkout to `main` of the fork. To grab new upstream commits before they are merged here:
+
+```bash
+cd ~/.pi/agent/git/github.com/vukasin/pi-subagents   # or ~/src/pi-subagents
+git pull upstream main
+# conflicts should be limited to index.ts constants and agents/*.md model lines
+```
 
 ## Usage
 
@@ -27,7 +66,7 @@ Each subagent runs as an isolated `pi` process with no inherited context — all
 
 ## Config
 
-Optional `config.json` next to `index.ts`:
+Optional `config.json` next to `index.ts` — also carries this fork's `toolExtensions` overrides (see [Local adaptations](#local-adaptations)):
 
 ```json
 { "maxConcurrency": 4 }

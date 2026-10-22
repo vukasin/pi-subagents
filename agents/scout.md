@@ -2,7 +2,7 @@
 name: scout
 description: Fast codebase recon — explores files, finds patterns, maps architecture
 tools: read, grep, find, ls
-model: anthropic/claude-haiku-4-5
+model: strata/qwen3.8-flash-next-coder-iq1_m
 thinking: medium
 ---
 
