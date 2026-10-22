@@ -1,0 +1,7 @@
+{
+  "maxConcurrency": 4,
+  "toolExtensions": {
+    "web_search": "~/.pi/agent/npm/node_modules/@ollama/pi-web-search/index.ts",
+    "web_fetch": "~/.pi/agent/npm/node_modules/@ollama/pi-web-search/index.ts"
+  }
+}

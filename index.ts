@@ -90,6 +90,13 @@ interface Details {
 
 interface ExtensionConfig {
 	maxConcurrency?: number;
+	/**
+	 * Per-tool overrides for the extension files loaded into subagent processes.
+	 * Keys are tool names (`web_search`, `web_fetch`, `safe_bash`, ...); values are
+	 * absolute paths, `~`-prefixed paths, or paths relative to this extension
+	 * directory. Any tool without an override keeps its upstream default below.
+	 */
+	toolExtensions?: Record<string, string>;
 }
 
 const EXT_DIR = path.dirname(new URL(import.meta.url).pathname);
@@ -110,15 +117,35 @@ function loadConfig(): ExtensionConfig {
 // Built-in tools that pi provides natively (no extension needed)
 const BUILTIN_TOOLS = new Set(["read", "write", "edit", "bash", "grep", "find", "ls"]);
 
-// Custom tools that require loading an extension into the subagent process
+// Custom tools that require loading an extension into the subagent process.
+// Upstream convention: extensions live in ~/.pi/agent/extensions/<name>/index.ts.
+// Override per machine with config.json next to index.ts (see ./config.json) so
+// this file stays mergeable when upstream changes the defaults.
 const EXT_BASE = path.join(process.env.HOME || "~", ".pi", "agent", "extensions");
+const CONFIG = loadConfig();
+
+/**
+ * Resolve the extension file that provides `tool` inside a subagent process,
+ * honoring `config.json` `toolExtensions` overrides (absolute, `~/`-prefixed,
+ * or relative to this extension directory).
+ */
+function resolveToolExtension(tool: string, fallback: string): string {
+	const override = CONFIG.toolExtensions?.[tool]?.trim();
+	if (!override) return fallback;
+	if (override === "~") return os.homedir();
+	if (override.startsWith("~/")) return path.join(os.homedir(), override.slice(2));
+	return path.isAbsolute(override) ? override : path.join(EXT_DIR, override);
+}
+
 const CUSTOM_TOOL_EXTENSIONS: Record<string, string> = {
-	web_search: path.join(EXT_BASE, "web-search", "index.ts"),
-	web_fetch: path.join(EXT_BASE, "web-fetch", "index.ts"),
-	safe_bash: path.join(TOOLS_DIR, "safe-bash.ts"),
-	video_extract: path.join(EXT_BASE, "video-extract", "index.ts"),
-	youtube_search: path.join(EXT_BASE, "youtube-search", "index.ts"),
-	google_image_search: path.join(EXT_BASE, "google-image-search", "index.ts"),
+	web_search: resolveToolExtension("web_search", path.join(EXT_BASE, "web-search", "index.ts")),
+	web_fetch: resolveToolExtension("web_fetch", path.join(EXT_BASE, "web-fetch", "index.ts")),
+	safe_bash: resolveToolExtension("safe_bash", path.join(TOOLS_DIR, "safe-bash.ts")),
+	video_extract: resolveToolExtension("video_extract", path.join(EXT_BASE, "video-extract", "index.ts")),
+	youtube_search: resolveToolExtension("youtube_search", path.join(EXT_BASE, "youtube-search", "index.ts")),
+	google_image_search: resolveToolExtension("google_image_search", path.join(EXT_BASE, "google-image-search", "index.ts")),
+	// `subagent` stays pinned to this file on the child's own extension dir —
+	// overriding it would let a child load a different registry than it advertises.
 	// `subagent` is the tool this very extension registers. Listing it here lets
 	// a parent agent grant it to a child agent — the child pi process loads this
 	// same index.ts via `--extension`, sees its own subagent tool, and (if
