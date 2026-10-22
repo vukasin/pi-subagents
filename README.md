@@ -18,6 +18,8 @@ A [pi](https://github.com/earendil-works/pi) extension that registers a single `
 
 Machine-specific settings live in `config.json` next to `index.ts`, so `index.ts` keeps upstream's defaults and stays mergeable when you pull from `amosblomqvist/pi-subagents`.
 
+**0. This fork adds `package.json` with a `pi` manifest (`"extensions": ["./index.ts"]`).** Without it, pi's package loader only looks for conventional resource directories (`extensions/`, `skills/`, `prompts/`, `themes/`), so `pi install git:github.com/amosblomqvist/pi-subagents` clones the repo but registers **no tools** — the extension silently never loads. Upstream relies on `index.ts` sitting at the repo root, which pi only honors for `--extension <path>` / local-directory installs. Keep `@mariozechner/pi-coding-agent`, `@mariozechner/pi-tui` and `@sinclair/typebox` in `peerDependencies` with a `"*"` range (they are host-provided; a physical copy in `dependencies` would duplicate pi's module registry).
+
 **1. Web tools come from the `@ollama/pi-web-search` package** (one file registers both tools):
 
 ```json
